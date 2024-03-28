@@ -3,6 +3,8 @@
 #include <gdiplus.h>
 #include <stdio.h>
 #include <iostream>
+#include <thread>
+#include <atomic>
 
 using namespace Gdiplus;
 
@@ -17,7 +19,7 @@ int rows = 20;
 HHOOK hKeyboardHook;
 HHOOK hMouseHook;
 bool isSpaceDown = false;
-bool isDragging = false;
+std::atomic<bool> isDragging(false);
 
 GdiplusStartupInput gdiplusStartupInput;
 ULONG_PTR gdiplusToken;
@@ -25,6 +27,19 @@ HDC hdc;
 
 Graphics *graphics = nullptr;
 Pen *pen = nullptr;
+
+POINT cursorPoint;
+
+void TrackMousePosition()
+{
+    POINT cursorPoint;
+    while (isDragging.load())
+    {
+        GetCursorPos(&cursorPoint);
+        std::cout << "Mouse position: " << cursorPoint.x << ", " << cursorPoint.y << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+}
 
 void drawVerticalLine(int x, Graphics &graphics, Pen &pen)
 {
@@ -67,19 +82,29 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
                            LONG idObject, LONG idChild,
                            DWORD dwEventThread, DWORD dwmsEventTime)
 {
+    static std::thread mouseTracker; // Keep track of the thread
+
     if (event == EVENT_SYSTEM_MOVESIZESTART)
     {
         HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-
         std::cout << "Window move/size start." << std::endl;
-        std::cout << hMonitor << std::endl;
+
         isDragging = true;
-        drawGrid(hMonitor);
+        // Start the mouse tracking thread if not already running
+        if (mouseTracker.joinable())
+        {
+            mouseTracker.join(); // Ensure the previous thread is joined before starting a new one
+        }
+        mouseTracker = std::thread(TrackMousePosition);
     }
     else if (event == EVENT_SYSTEM_MOVESIZEEND)
     {
         std::cout << "Window move/size end." << std::endl;
         isDragging = false;
+        if (mouseTracker.joinable())
+        {
+            mouseTracker.join(); // Wait for the mouse tracking thread to finish
+        }
     }
 }
 
@@ -98,7 +123,8 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
             if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)
             {
                 isSpaceDown = true;
-                std::cout << "-> Working \n";
+                GetCursorPos(&cursorPoint);
+                std::cout << "-> Working " << cursorPoint.x << " " << cursorPoint.y << "\n";
             }
             else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP)
             {
@@ -133,7 +159,6 @@ int main()
         0, 0,                                               // Process and thread ID, 0 = all processes and threads
         WINEVENT_OUTOFCONTEXT                               // Events are ASYNC
     );
-
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
