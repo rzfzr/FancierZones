@@ -26,6 +26,22 @@ HDC hdc;
 Graphics *graphics = nullptr;
 Pen *pen = nullptr;
 
+void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
+                           LONG idObject, LONG idChild,
+                           DWORD dwEventThread, DWORD dwmsEventTime)
+{
+    if (event == EVENT_SYSTEM_MOVESIZESTART)
+    {
+        std::cout << "Window move/size start." << std::endl;
+        isDragging = true;
+    }
+    else if (event == EVENT_SYSTEM_MOVESIZEEND)
+    {
+        std::cout << "Window move/size end." << std::endl;
+        isDragging = false;
+    }
+}
+
 void drawVerticalLine(int x, Graphics &graphics, Pen &pen)
 {
     graphics.DrawLine(&pen, x, 0, x, height);
@@ -65,55 +81,23 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (p->vkCode == VK_SPACE)
         {
             if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)
+            {
                 isSpaceDown = true;
+                std::cout << "-> Working \n";
+            }
             else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP)
+            {
                 isSpaceDown = false;
+            }
         }
     }
     return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 }
 
-LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
-{
-    if (nCode == HC_ACTION)
-    {
-        MOUSEHOOKSTRUCT *mouseStruct = (MOUSEHOOKSTRUCT *)lParam;
-
-        switch (wParam)
-        {
-        case WM_LBUTTONDOWN:
-        {
-            std::cout << "-> isDragging = true\n";
-
-            // Check if the click is on a window caption
-            // This requires additional logic to determine if it's the title bar.
-            // For simplicity, we're assuming any click could start a drag.
-            isDragging = true;
-            break;
-        }
-        case WM_MOUSEMOVE:
-        {
-            if (isDragging && isSpaceDown)
-            {
-                std::cout << "-> Window dragging with space held down.\n";
-            }
-            break;
-        }
-        case WM_LBUTTONUP:
-        {
-            std::cout << "-> isDragging = false\n";
-
-            isDragging = false;
-            break;
-        }
-        }
-    }
-    return CallNextHookEx(NULL, nCode, wParam, lParam);
-}
-
 int main()
 {
     std::cout << "-> Starting FancierZones \n";
+    CoInitialize(nullptr);
 
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
@@ -122,19 +106,35 @@ int main()
     pen = new Pen(Color(255, 0, 0, 0), 5);
 
     hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, nullptr, 0);
-    hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseProc, nullptr, 0);
+
+    HWINEVENTHOOK moveStartHook = SetWinEventHook(
+        EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZESTART, // Range of events
+        NULL,                                                   // Handle to DLL with the callback function, NULL means current process
+        WinEventProc,                                           // Pointer to the callback function
+        0, 0,                                                   // Process and thread ID, 0 = all processes and threads
+        WINEVENT_OUTOFCONTEXT                                   // Events are ASYNC
+    );
+
+    HWINEVENTHOOK moveEndHook = SetWinEventHook(
+        EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZEEND, // Range of events
+        NULL,                                               // Handle to DLL with the callback function, NULL means current process
+        WinEventProc,                                       // Pointer to the callback function
+        0, 0,                                               // Process and thread ID, 0 = all processes and threads
+        WINEVENT_OUTOFCONTEXT                               // Events are ASYNC
+    );
 
     MSG msg;
-    while (GetMessage(&msg, nullptr, 0, 0))
+    while (GetMessage(&msg, NULL, 0, 0))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
 
     UnhookWindowsHookEx(hKeyboardHook);
-    UnhookWindowsHookEx(hMouseHook);
+    UnhookWinEvent(moveStartHook);
+    UnhookWinEvent(moveEndHook);
 
-    GdiplusShutdown(gdiplusToken);
+    CoUninitialize();
 
     std::cout << "-> Finished Drawing\n";
 }
