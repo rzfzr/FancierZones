@@ -13,14 +13,16 @@ int width = 2160;
 int height = 3840;
 
 int cols = 10;
-int rows = 10;
+int rows = 20;
 
-void drawVerticalLine(int x, HDC hdc)
+void drawVerticalLine(int x, Graphics &graphics, Pen &pen)
 {
-    Graphics graphics(hdc);
-    Pen pen(Color(255, 0, 0, 0), 5);
-
     graphics.DrawLine(&pen, x, 0, x, height);
+}
+
+void drawHorizontalLine(int y, Graphics &graphics, Pen &pen)
+{
+    graphics.DrawLine(&pen, 0, y, width, y);
 }
 
 int main()
@@ -34,9 +36,16 @@ int main()
     HDC hdc;
     hdc = GetDC(NULL);
 
+    Graphics graphics(hdc);
+    Pen pen(Color(255, 0, 0, 0), 5);
+
     for (int i = 0; i < cols; i++)
     {
-        drawVerticalLine(i * width / cols, hdc);
+        drawVerticalLine(i * width / cols, graphics, pen);
+    }
+    for (int i = 0; i < rows; i++)
+    {
+        drawHorizontalLine(i * height / rows, graphics, pen);
     }
 
     std::cout << "Finished Drawing\n";
