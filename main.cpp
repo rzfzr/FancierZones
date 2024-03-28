@@ -36,10 +36,18 @@ void drawHorizontalLine(int y, Graphics &graphics, Pen &pen)
     graphics.DrawLine(&pen, 0, y, width, y);
 }
 
-void drawGrid()
+void drawGrid(HMONITOR hMonitor)
 {
-    if (graphics && pen)
+    MONITORINFOEX miex;
+    miex.cbSize = sizeof(MONITORINFOEX);
+
+    if (GetMonitorInfo(hMonitor, (LPMONITORINFO)&miex))
     {
+
+        hdc = CreateDC(TEXT("DISPLAY"), miex.szDevice, NULL, NULL);
+
+        graphics = new Graphics(hdc);
+        pen = new Pen(Color(255, 0, 0, 0), 5);
         std::cout << "-> Drawing \n";
 
         for (int i = 0; i < cols; i++)
@@ -50,10 +58,8 @@ void drawGrid()
         {
             graphics->DrawLine(pen, 0, i * height / rows, width, i * height / rows);
         }
-    }
-    else
-    {
-        std::cout << "-> Not Drawing \n";
+
+        DeleteDC(hdc);
     }
 }
 
@@ -63,9 +69,12 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
 {
     if (event == EVENT_SYSTEM_MOVESIZESTART)
     {
+        HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+
         std::cout << "Window move/size start." << std::endl;
+        std::cout << hMonitor << std::endl;
         isDragging = true;
-        drawGrid();
+        drawGrid(hMonitor);
     }
     else if (event == EVENT_SYSTEM_MOVESIZEEND)
     {
@@ -106,10 +115,6 @@ int main()
     CoInitialize(nullptr);
 
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
-
-    hdc = GetDC(NULL);
-    graphics = new Graphics(hdc);
-    pen = new Pen(Color(255, 0, 0, 0), 5);
 
     hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, nullptr, 0);
 
