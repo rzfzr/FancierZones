@@ -8,32 +8,28 @@ using namespace Gdiplus;
 
 using namespace Gdiplus;
 #pragma comment(lib, "Gdiplus.lib")
-VOID OnPaint(HDC hdc)
+
+int width = 800;
+int height = 600;
+
+void draw(int x1, int y1, int x2, int y2)
 {
+    HDC hdc;
+    hdc = GetDC(NULL);
+    std::cout << hdc;
     Graphics graphics(hdc);
     Pen pen(Color(255, 0, 0, 0), 5);
-    graphics.DrawLine(&pen, 0, 0, 200, 100);
+    graphics.DrawLine(&pen, x1, y1, x1, y2);
 }
 
 int main()
 {
+    std::cout << "-> Starting FancierZones \n";
 
-    // GDI+ startup incantation
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken;
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-    // Untitled - Notepad
-    HWND hWnd = FindWindow(NULL, TEXT("Untitled - Notepad"));
-    if (hWnd == 0)
-    {
-        std::cout << "[-] - Unable to locate window!\n";
-        return 0;
-    }
-    std::cout << "[+] - Located Window, starting hook.\n";
-    HDC hdc;
-    hdc = GetDC(hWnd);
-    std::cout << hdc;
-    OnPaint(hdc);
+    draw(100, 0, 0, 3840);
     std::cout << "Finished Drawing\n";
 }
