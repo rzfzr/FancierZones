@@ -17,6 +17,7 @@ int rows = 20;
 HHOOK hKeyboardHook;
 HHOOK hMouseHook;
 bool isSpaceDown = false;
+bool isDragging = false;
 
 GdiplusStartupInput gdiplusStartupInput;
 ULONG_PTR gdiplusToken;
@@ -76,16 +77,38 @@ LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode == HC_ACTION)
     {
-        // Handle mouse events to detect dragging here
-        // This is simplified; actual implementation would need more logic
-        if (isSpaceDown && wParam == WM_MOUSEMOVE)
-        {
-            std::cout << "-> Trigger \n";
+        MOUSEHOOKSTRUCT *mouseStruct = (MOUSEHOOKSTRUCT *)lParam;
 
-            drawGrid();
+        switch (wParam)
+        {
+        case WM_LBUTTONDOWN:
+        {
+            std::cout << "-> isDragging = true\n";
+
+            // Check if the click is on a window caption
+            // This requires additional logic to determine if it's the title bar.
+            // For simplicity, we're assuming any click could start a drag.
+            isDragging = true;
+            break;
+        }
+        case WM_MOUSEMOVE:
+        {
+            if (isDragging && isSpaceDown)
+            {
+                std::cout << "-> Window dragging with space held down.\n";
+            }
+            break;
+        }
+        case WM_LBUTTONUP:
+        {
+            std::cout << "-> isDragging = false\n";
+
+            isDragging = false;
+            break;
+        }
         }
     }
-    return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
+    return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
 int main()
