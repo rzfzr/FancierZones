@@ -88,7 +88,7 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
     {
         HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         std::cout << "Window move/size start." << std::endl;
-
+        drawGrid(hMonitor);
         isDragging = true;
         // Start the mouse tracking thread if not already running
         if (mouseTracker.joinable())
