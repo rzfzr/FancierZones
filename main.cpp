@@ -26,22 +26,6 @@ HDC hdc;
 Graphics *graphics = nullptr;
 Pen *pen = nullptr;
 
-void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
-                           LONG idObject, LONG idChild,
-                           DWORD dwEventThread, DWORD dwmsEventTime)
-{
-    if (event == EVENT_SYSTEM_MOVESIZESTART)
-    {
-        std::cout << "Window move/size start." << std::endl;
-        isDragging = true;
-    }
-    else if (event == EVENT_SYSTEM_MOVESIZEEND)
-    {
-        std::cout << "Window move/size end." << std::endl;
-        isDragging = false;
-    }
-}
-
 void drawVerticalLine(int x, Graphics &graphics, Pen &pen)
 {
     graphics.DrawLine(&pen, x, 0, x, height);
@@ -70,6 +54,23 @@ void drawGrid()
     else
     {
         std::cout << "-> Not Drawing \n";
+    }
+}
+
+void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
+                           LONG idObject, LONG idChild,
+                           DWORD dwEventThread, DWORD dwmsEventTime)
+{
+    if (event == EVENT_SYSTEM_MOVESIZESTART)
+    {
+        std::cout << "Window move/size start." << std::endl;
+        isDragging = true;
+        drawGrid();
+    }
+    else if (event == EVENT_SYSTEM_MOVESIZEEND)
+    {
+        std::cout << "Window move/size end." << std::endl;
+        isDragging = false;
     }
 }
 
