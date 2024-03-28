@@ -76,6 +76,11 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
 
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
+    if (!isDragging)
+    {
+        return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
+    }
+
     if (nCode == HC_ACTION)
     {
         KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
