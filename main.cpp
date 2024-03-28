@@ -9,17 +9,18 @@ using namespace Gdiplus;
 using namespace Gdiplus;
 #pragma comment(lib, "Gdiplus.lib")
 
-int width = 800;
-int height = 600;
+int width = 2160;
+int height = 3840;
 
-void draw(int x1, int y1, int x2, int y2)
+int cols = 10;
+int rows = 10;
+
+void drawVerticalLine(int x, HDC hdc)
 {
-    HDC hdc;
-    hdc = GetDC(NULL);
-    std::cout << hdc;
     Graphics graphics(hdc);
     Pen pen(Color(255, 0, 0, 0), 5);
-    graphics.DrawLine(&pen, x1, y1, x1, y2);
+
+    graphics.DrawLine(&pen, x, 0, x, height);
 }
 
 int main()
@@ -30,6 +31,13 @@ int main()
     ULONG_PTR gdiplusToken;
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-    draw(100, 0, 0, 3840);
+    HDC hdc;
+    hdc = GetDC(NULL);
+
+    for (int i = 0; i < cols; i++)
+    {
+        drawVerticalLine(i * width / cols, hdc);
+    }
+
     std::cout << "Finished Drawing\n";
 }
