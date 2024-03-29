@@ -19,7 +19,7 @@ int rows = 20;
 HHOOK hKeyboardHook;
 HHOOK hMouseHook;
 bool isSpaceDown = false;
-std::atomic<bool> isDragging(false);
+std::atomic<bool> isCustomDragging(false);
 
 GdiplusStartupInput gdiplusStartupInput;
 ULONG_PTR gdiplusToken;
@@ -33,7 +33,7 @@ POINT cursorPoint;
 void TrackMousePosition()
 {
     POINT cursorPoint;
-    while (isDragging.load())
+    while (isCustomDragging.load())
     {
         GetCursorPos(&cursorPoint);
 
@@ -43,8 +43,15 @@ void TrackMousePosition()
         const int horizontalZone = cursorPoint.x / colWidth;
         const int verticalZone = cursorPoint.y / rowHeight;
 
-        std::cout << "Mouse position: " << cursorPoint.x << ", " << cursorPoint.y << ", zone: " << horizontalZone << ", " << verticalZone << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        const int startX = horizontalZone * colWidth;
+        const int startY = verticalZone * rowHeight;
+
+        // std::cout << "Mouse position: " << cursorPoint.x << ", " << cursorPoint.y << ", zone: " << horizontalZone << ", " << verticalZone << std::endl;
+        // std::cout << "Start position: " << startX << ", " << startY << std::endl;
+
+        MoveWindow(GetForegroundWindow(), startX, startY, colWidth, rowHeight, TRUE);
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 }
 
@@ -85,6 +92,31 @@ void drawGrid(HMONITOR hMonitor)
     }
 }
 
+void SimulateMouseRelease()
+{
+    INPUT input = {0};                     // Initialize INPUT structure
+    input.type = INPUT_MOUSE;              // Indicate we are sending mouse input
+    input.mi.dwFlags = MOUSEEVENTF_LEFTUP; // Indicate a left-button release
+
+    SendInput(1, &input, sizeof(INPUT)); // Send the input event
+}
+
+LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    if (nCode == HC_ACTION)
+    {
+        // Check if the event is a mouse button release
+        if (wParam == WM_LBUTTONUP || wParam == WM_RBUTTONUP)
+        {
+
+            std::cout << "Mouse button release\n";
+            isCustomDragging = false;
+            UnhookWindowsHookEx(hMouseHook);
+        }
+    }
+    return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
 void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
                            LONG idObject, LONG idChild,
                            DWORD dwEventThread, DWORD dwmsEventTime)
@@ -93,31 +125,33 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
 
     if (event == EVENT_SYSTEM_MOVESIZESTART)
     {
+        std::cout << "Native window move/size start." << std::endl;
+        SimulateMouseRelease();
         HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        std::cout << "Window move/size start." << std::endl;
         drawGrid(hMonitor);
-        isDragging = true;
+        isCustomDragging = true;
         // Start the mouse tracking thread if not already running
         if (mouseTracker.joinable())
         {
             mouseTracker.join(); // Ensure the previous thread is joined before starting a new one
         }
         mouseTracker = std::thread(TrackMousePosition);
+
+        hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
+        if (hMouseHook == NULL)
+        {
+            std::cout << "Failed to set mouse hook" << std::endl;
+        }
     }
     else if (event == EVENT_SYSTEM_MOVESIZEEND)
     {
-        std::cout << "Window move/size end." << std::endl;
-        isDragging = false;
-        if (mouseTracker.joinable())
-        {
-            mouseTracker.join(); // Wait for the mouse tracking thread to finish
-        }
+        std::cout << "Native window move/size end." << std::endl;
     }
 }
 
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (!isDragging)
+    if (!isCustomDragging)
     {
         return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
     }
@@ -166,6 +200,7 @@ int main()
         0, 0,                                               // Process and thread ID, 0 = all processes and threads
         WINEVENT_OUTOFCONTEXT                               // Events are ASYNC
     );
+
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
