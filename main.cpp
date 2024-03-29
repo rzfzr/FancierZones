@@ -32,6 +32,7 @@ Graphics *graphics = nullptr;
 Pen *pen = nullptr;
 
 POINT cursorPoint;
+int cursorOffset = -1;
 
 void TrackMousePosition()
 {
@@ -42,6 +43,7 @@ void TrackMousePosition()
         HWND foregroundWindow = GetForegroundWindow();
 
         RECT windowRect;
+
         if (GetWindowRect(foregroundWindow, &windowRect))
         {
             const int windowWidth = windowRect.right - windowRect.left;
@@ -50,7 +52,13 @@ void TrackMousePosition()
             const int adjustedWindowWidth = ((windowWidth + colWidth / 2) / colWidth) * colWidth;
             const int adjustedWindowHeight = ((windowHeight + rowHeight / 2) / rowHeight) * rowHeight;
 
-            const int horizontalZone = cursorPoint.x / colWidth;
+            if (cursorOffset == -1)
+            {
+                cursorOffset = cursorPoint.x - windowRect.left;
+                std::cout << "Cursor offset: " << cursorPoint.x << ", " << windowRect.left << ", " << cursorOffset << std::endl;
+            }
+
+            const int horizontalZone = (cursorPoint.x - cursorOffset) / colWidth;
             const int verticalZone = cursorPoint.y / rowHeight;
 
             const int startX = horizontalZone * colWidth;
@@ -117,6 +125,7 @@ LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 
             std::cout << "Mouse button release\n";
             isCustomDragging = false;
+            cursorOffset = -1;
             UnhookWindowsHookEx(hMouseHook);
         }
     }
