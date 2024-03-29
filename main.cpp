@@ -10,11 +10,11 @@ using namespace Gdiplus;
 
 #pragma comment(lib, "Gdiplus.lib")
 
-int width = 2160;
-int height = 3840;
+const int width = 2160;
+const int height = 3840;
 
-const int cols = 10;
-const int rows = 20;
+const int cols = 16;
+const int rows = 40;
 
 const int colWidth = width / cols;
 const int rowHeight = height / rows;
@@ -55,7 +55,6 @@ void TrackMousePosition()
             if (cursorOffset == -1)
             {
                 cursorOffset = cursorPoint.x - windowRect.left;
-                std::cout << "Cursor offset: " << cursorPoint.x << ", " << windowRect.left << ", " << cursorOffset << std::endl;
             }
 
             const int horizontalZone = (cursorPoint.x - cursorOffset) / colWidth;
@@ -86,7 +85,6 @@ void drawGrid(HMONITOR hMonitor)
 
     if (GetMonitorInfo(hMonitor, (LPMONITORINFO)&miex))
     {
-
         hdc = CreateDC(TEXT("DISPLAY"), miex.szDevice, NULL, NULL);
 
         graphics = new Graphics(hdc);
@@ -108,19 +106,18 @@ void drawGrid(HMONITOR hMonitor)
 
 void SimulateMouseRelease()
 {
-    INPUT input = {0};                     // Initialize INPUT structure
-    input.type = INPUT_MOUSE;              // Indicate we are sending mouse input
-    input.mi.dwFlags = MOUSEEVENTF_LEFTUP; // Indicate a left-button release
+    INPUT input = {0};
+    input.type = INPUT_MOUSE;
+    input.mi.dwFlags = MOUSEEVENTF_LEFTUP;
 
-    SendInput(1, &input, sizeof(INPUT)); // Send the input event
+    SendInput(1, &input, sizeof(INPUT));
 }
 
 LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode == HC_ACTION)
     {
-        // Check if the event is a mouse button release
-        if (wParam == WM_LBUTTONUP || wParam == WM_RBUTTONUP)
+        if (wParam == WM_LBUTTONUP || wParam == WM_RBUTTONUP) // mouse button release
         {
 
             std::cout << "Mouse button release\n";
@@ -137,14 +134,14 @@ bool isNearEdge(HWND hwnd, POINT pt)
     RECT rect;
     GetWindowRect(hwnd, &rect);
 
-    const int EDGE_THRESHOLD = 10; // Define proximity to edge to consider
+    const int EDGE_THRESHOLD = 10;
 
     if (pt.x - rect.left < EDGE_THRESHOLD || rect.right - pt.x < EDGE_THRESHOLD ||
         pt.y - rect.top < EDGE_THRESHOLD || rect.bottom - pt.y < EDGE_THRESHOLD)
     {
-        return true; // Cursor is near an edge
+        return true;
     }
-    return false; // Cursor is not near an edge
+    return false;
 }
 
 void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
@@ -158,18 +155,15 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
         POINT cursorPos;
         GetCursorPos(&cursorPos);
 
-        if (isNearEdge(hwnd, cursorPos))
-        {
-        }
-        else
+        if (!isNearEdge(hwnd, cursorPos))
         {
             SimulateMouseRelease();
             HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             isCustomDragging = true;
-            // Start the mouse tracking thread if not already running
+
             if (mouseTracker.joinable())
             {
-                mouseTracker.join(); // Ensure the previous thread is joined before starting a new one
+                mouseTracker.join();
             }
             mouseTracker = std::thread(TrackMousePosition);
 
@@ -223,12 +217,11 @@ int main()
     hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, nullptr, 0);
 
     HWINEVENTHOOK moveStartHook = SetWinEventHook(
-        EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZESTART, // Range of events
-        NULL,                                                   // Handle to DLL with the callback function, NULL means current process
-        WinEventProc,                                           // Pointer to the callback function
-        0, 0,                                                   // Process and thread ID, 0 = all processes and threads
-        WINEVENT_OUTOFCONTEXT                                   // Events are ASYNC
-    );
+        EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZESTART,
+        NULL,
+        WinEventProc,
+        0, 0,
+        WINEVENT_OUTOFCONTEXT);
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
@@ -242,5 +235,5 @@ int main()
 
     CoUninitialize();
 
-    std::cout << "-> Finished Drawing\n";
+    std::cout << "-> Exiting FancierZones\n";
 }
