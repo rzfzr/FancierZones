@@ -10,6 +10,19 @@ using namespace Gdiplus;
 
 #pragma comment(lib, "Gdiplus.lib")
 
+enum class ResizingDirection
+{
+    None = 0,
+    Left,
+    Right,
+    Top,
+    Bottom,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight
+};
+
 const int width = 2160;
 const int height = 3840;
 
@@ -23,6 +36,9 @@ HHOOK hKeyboardHook;
 HHOOK hMouseHook;
 bool isSpaceDown = false;
 std::atomic<bool> isCustomDragging(false);
+std::atomic<bool> isCustomResizing(false);
+
+std::atomic<ResizingDirection> resizingDirection(ResizingDirection::None);
 
 GdiplusStartupInput gdiplusStartupInput;
 ULONG_PTR gdiplusToken;
@@ -32,50 +48,147 @@ Graphics *graphics = nullptr;
 Pen *pen = nullptr;
 
 POINT cursorPoint;
-int cursorOffset = -1;
+int cursorToWindowOffset = -1;
+
+ResizingDirection GetResizingDirection(HWND hwnd, POINT cursorPos)
+{
+    RECT windowRect;
+    GetWindowRect(hwnd, &windowRect);
+
+    const int EDGE_THRESHOLD = 10;
+    ResizingDirection direction = ResizingDirection::None;
+
+    bool left = cursorPos.x <= (windowRect.left + EDGE_THRESHOLD);
+    bool right = cursorPos.x >= (windowRect.right - EDGE_THRESHOLD);
+    bool top = cursorPos.y <= (windowRect.top + EDGE_THRESHOLD);
+    bool bottom = cursorPos.y >= (windowRect.bottom - EDGE_THRESHOLD);
+
+    if (top && left)
+    {
+        direction = ResizingDirection::TopLeft;
+    }
+    else if (top && right)
+    {
+        direction = ResizingDirection::TopRight;
+    }
+    else if (bottom && left)
+    {
+        direction = ResizingDirection::BottomLeft;
+    }
+    else if (bottom && right)
+    {
+        direction = ResizingDirection::BottomRight;
+    }
+    else if (left)
+    {
+        direction = ResizingDirection::Left;
+    }
+    else if (right)
+    {
+        direction = ResizingDirection::Right;
+    }
+    else if (top)
+    {
+        direction = ResizingDirection::Top;
+    }
+    else if (bottom)
+    {
+        direction = ResizingDirection::Bottom;
+    }
+
+    return direction;
+}
 
 void TrackMousePosition()
 {
     while (isCustomDragging.load())
     {
-
         GetCursorPos(&cursorPoint);
         HWND foregroundWindow = GetForegroundWindow();
-
         RECT windowRect;
+        if (GetWindowRect(foregroundWindow, &windowRect))
+        {
+            if (cursorToWindowOffset == -1)
+            {
+                cursorToWindowOffset = cursorPoint.x - windowRect.left;
+            }
+
+            const int oldWindowWidth = windowRect.right - windowRect.left;
+            const int oldWindowHeight = windowRect.bottom - windowRect.top;
+
+            const int newWindowWidth = ((oldWindowWidth + colWidth / 2) / colWidth) * colWidth;
+            const int newWindowHeight = ((oldWindowHeight + rowHeight / 2) / rowHeight) * rowHeight;
+
+            const int horizontalZone = (cursorPoint.x - cursorToWindowOffset) / colWidth;
+            const int verticalZone = cursorPoint.y / rowHeight;
+
+            const int newCursorX = horizontalZone * colWidth;
+            const int newCursorY = verticalZone * rowHeight;
+
+            MoveWindow(foregroundWindow,
+                       newCursorX,
+                       newCursorY,
+                       newWindowWidth,
+                       newWindowHeight,
+                       TRUE);
+        }
+    }
+    while (isCustomResizing.load())
+    {
+        GetCursorPos(&cursorPoint);
+        HWND foregroundWindow = GetForegroundWindow();
+        RECT windowRect;
+
+        if (resizingDirection == ResizingDirection::None)
+        {
+            resizingDirection = GetResizingDirection(foregroundWindow, cursorPoint);
+        }
 
         if (GetWindowRect(foregroundWindow, &windowRect))
         {
-            const int windowWidth = windowRect.right - windowRect.left;
-            const int windowHeight = windowRect.bottom - windowRect.top;
+            const int oldWindowWidth = windowRect.right - windowRect.left;
+            const int oldWindowHeight = windowRect.bottom - windowRect.top;
 
-            const int adjustedWindowWidth = ((windowWidth + colWidth / 2) / colWidth) * colWidth;
-            const int adjustedWindowHeight = ((windowHeight + rowHeight / 2) / rowHeight) * rowHeight;
+            int newWindowWidth = ((oldWindowWidth + colWidth / 2) / colWidth) * colWidth;
+            int newWindowHeight = ((oldWindowHeight + rowHeight / 2) / rowHeight) * rowHeight;
 
-            if (cursorOffset == -1)
+            int horizontalZone = cursorPoint.x / colWidth;
+            int verticalZone = cursorPoint.y / rowHeight;
+
+            int newCursorX = horizontalZone * colWidth;
+            int newCursorY = verticalZone * rowHeight;
+
+            switch (resizingDirection)
             {
-                cursorOffset = cursorPoint.x - windowRect.left;
+            case ResizingDirection::TopLeft:
+            case ResizingDirection::TopRight:
+            case ResizingDirection::BottomLeft:
+            case ResizingDirection::BottomRight:
+                // Handle corner resizing
+                break;
+            case ResizingDirection::Left:
+            case ResizingDirection::Right:
+                // Handle horizontal resizing
+                break;
+            case ResizingDirection::Top:
+                break;
+            case ResizingDirection::Bottom:
+                verticalZone = (cursorPoint.y - windowRect.top) / rowHeight;
+                newCursorY = verticalZone * rowHeight;
+
+                newWindowHeight = newCursorY;
+
+                break;
             }
 
-            const int horizontalZone = (cursorPoint.x - cursorOffset) / colWidth;
-            const int verticalZone = cursorPoint.y / rowHeight;
-
-            const int startX = horizontalZone * colWidth;
-            const int startY = verticalZone * rowHeight;
-
-            MoveWindow(foregroundWindow, startX, startY, adjustedWindowWidth, adjustedWindowHeight, TRUE);
+            MoveWindow(foregroundWindow,
+                       windowRect.left,
+                       windowRect.top,
+                       newWindowWidth,
+                       newWindowHeight,
+                       TRUE);
         }
     }
-}
-
-void drawVerticalLine(int x, Graphics &graphics, Pen &pen)
-{
-    graphics.DrawLine(&pen, x, 0, x, height);
-}
-
-void drawHorizontalLine(int y, Graphics &graphics, Pen &pen)
-{
-    graphics.DrawLine(&pen, 0, y, width, y);
 }
 
 void drawGrid(HMONITOR hMonitor)
@@ -119,10 +232,11 @@ LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
     {
         if (wParam == WM_LBUTTONUP || wParam == WM_RBUTTONUP) // mouse button release
         {
-
-            std::cout << "Mouse button release\n";
+            std::cout << "isCustomDragging and isCustomResizing release\n";
             isCustomDragging = false;
-            cursorOffset = -1;
+            isCustomResizing = false;
+            cursorToWindowOffset = -1;
+            resizingDirection = ResizingDirection::None;
             UnhookWindowsHookEx(hMouseHook);
         }
     }
@@ -154,29 +268,34 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
         std::cout << "Native window move/size start." << std::endl;
         POINT cursorPos;
         GetCursorPos(&cursorPos);
+        SimulateMouseRelease();
+        HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
 
-        if (!isNearEdge(hwnd, cursorPos))
+        if (isNearEdge(hwnd, cursorPos))
         {
-            SimulateMouseRelease();
-            HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-            isCustomDragging = true;
-
-            if (mouseTracker.joinable())
-            {
-                mouseTracker.join();
-            }
-            mouseTracker = std::thread(TrackMousePosition);
-
-            hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
-            if (hMouseHook == NULL)
-            {
-                std::cout << "Failed to set mouse hook" << std::endl;
-            }
-
-            std::thread gridThread([hMonitor]()
-                                   { drawGrid(hMonitor); });
-            gridThread.detach(); // Allows the thread to run independently
+            std::cout << "Custom Resizing" << std::endl;
+            isCustomResizing = true;
         }
+        else
+        {
+            std::cout << "Custom Dragging" << std::endl;
+            isCustomDragging = true;
+        }
+        if (mouseTracker.joinable())
+        {
+            mouseTracker.join();
+        }
+        mouseTracker = std::thread(TrackMousePosition);
+
+        hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
+        if (hMouseHook == NULL)
+        {
+            std::cout << "Failed to set mouse hook" << std::endl;
+        }
+
+        std::thread gridThread([hMonitor]()
+                               { drawGrid(hMonitor); });
+        gridThread.detach(); // Allows the thread to run independently
     }
 }
 
