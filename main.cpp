@@ -239,23 +239,6 @@ void SimulateMouseRelease()
     SendInput(1, &input, sizeof(INPUT));
 }
 
-LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
-{
-    if (nCode == HC_ACTION)
-    {
-        if (wParam == WM_LBUTTONUP || wParam == WM_RBUTTONUP) // mouse button release
-        {
-            std::cout << "isCustomDragging and isCustomResizing release\n";
-            isCustomDragging = false;
-            isCustomResizing = false;
-            cursorToWindowOffset = -1;
-            resizingDirection = ResizingDirection::None;
-            UnhookWindowsHookEx(hMouseHook);
-        }
-    }
-    return CallNextHookEx(NULL, nCode, wParam, lParam);
-}
-
 bool isNearEdge(HWND hwnd, POINT pt)
 {
     RECT rect;
@@ -300,12 +283,6 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
         }
         mouseTracker = std::thread(TrackMousePosition);
 
-        hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
-        if (hMouseHook == NULL)
-        {
-            std::cout << "Failed to set mouse hook" << std::endl;
-        }
-
         std::thread gridThread([hMonitor]()
                                { drawGrid(hMonitor); });
         gridThread.detach(); // Allows the thread to run independently
@@ -318,7 +295,6 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     {
         return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
     }
-
     if (nCode == HC_ACTION)
     {
         KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
@@ -339,6 +315,21 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 }
 
+LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    if (nCode == HC_ACTION)
+    {
+        if (wParam == WM_LBUTTONUP || wParam == WM_RBUTTONUP) // mouse button release
+        {
+            isCustomDragging = false;
+            isCustomResizing = false;
+            cursorToWindowOffset = -1;
+            resizingDirection = ResizingDirection::None;
+        }
+    }
+    return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
 int main()
 {
     std::cout << "-> Starting FancierZones \n";
@@ -347,6 +338,7 @@ int main()
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
     hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, nullptr, 0);
+    hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, nullptr, 0);
 
     HWINEVENTHOOK moveStartHook = SetWinEventHook(
         EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZESTART,
@@ -364,6 +356,7 @@ int main()
 
     UnhookWindowsHookEx(hKeyboardHook);
     UnhookWinEvent(moveStartHook);
+    UnhookWindowsHookEx(hMouseHook);
 
     CoUninitialize();
 
