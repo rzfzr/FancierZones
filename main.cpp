@@ -13,8 +13,11 @@ using namespace Gdiplus;
 int width = 2160;
 int height = 3840;
 
-int cols = 10;
-int rows = 20;
+const int cols = 10;
+const int rows = 20;
+
+const int colWidth = width / cols;
+const int rowHeight = height / rows;
 
 HHOOK hKeyboardHook;
 HHOOK hMouseHook;
@@ -32,26 +35,31 @@ POINT cursorPoint;
 
 void TrackMousePosition()
 {
-    POINT cursorPoint;
     while (isCustomDragging.load())
     {
+
         GetCursorPos(&cursorPoint);
+        HWND foregroundWindow = GetForegroundWindow();
 
-        const int colWidth = width / cols;
-        const int rowHeight = height / rows;
+        RECT windowRect;
+        if (GetWindowRect(foregroundWindow, &windowRect))
+        {
+            int windowWidth = windowRect.right - windowRect.left;  // Calculate the window's width
+            int windowHeight = windowRect.bottom - windowRect.top; // Calculate the window's height
 
-        const int horizontalZone = cursorPoint.x / colWidth;
-        const int verticalZone = cursorPoint.y / rowHeight;
+            // Assuming you have the screen divided into a grid, calculate the window's new position
+            // based on the cursor's position. This example simply snaps the window to the nearest
+            // grid position without resizing it.
 
-        const int startX = horizontalZone * colWidth;
-        const int startY = verticalZone * rowHeight;
+            const int horizontalZone = cursorPoint.x / colWidth;
+            const int verticalZone = cursorPoint.y / rowHeight;
 
-        // std::cout << "Mouse position: " << cursorPoint.x << ", " << cursorPoint.y << ", zone: " << horizontalZone << ", " << verticalZone << std::endl;
-        // std::cout << "Start position: " << startX << ", " << startY << std::endl;
+            const int startX = horizontalZone * colWidth;
+            const int startY = verticalZone * rowHeight;
 
-        MoveWindow(GetForegroundWindow(), startX, startY, colWidth, rowHeight, TRUE);
-
-        // std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            // Move the window to the new position while keeping its original size
+            MoveWindow(foregroundWindow, startX, startY, windowWidth, windowHeight, TRUE);
+        }
     }
 }
 
