@@ -44,12 +44,11 @@ void TrackMousePosition()
         RECT windowRect;
         if (GetWindowRect(foregroundWindow, &windowRect))
         {
-            int windowWidth = windowRect.right - windowRect.left;  // Calculate the window's width
-            int windowHeight = windowRect.bottom - windowRect.top; // Calculate the window's height
+            const int windowWidth = windowRect.right - windowRect.left;
+            const int windowHeight = windowRect.bottom - windowRect.top;
 
-            // Assuming you have the screen divided into a grid, calculate the window's new position
-            // based on the cursor's position. This example simply snaps the window to the nearest
-            // grid position without resizing it.
+            const int adjustedWindowWidth = ((windowWidth + colWidth / 2) / colWidth) * colWidth;
+            const int adjustedWindowHeight = ((windowHeight + rowHeight / 2) / rowHeight) * rowHeight;
 
             const int horizontalZone = cursorPoint.x / colWidth;
             const int verticalZone = cursorPoint.y / rowHeight;
@@ -57,8 +56,7 @@ void TrackMousePosition()
             const int startX = horizontalZone * colWidth;
             const int startY = verticalZone * rowHeight;
 
-            // Move the window to the new position while keeping its original size
-            MoveWindow(foregroundWindow, startX, startY, windowWidth, windowHeight, TRUE);
+            MoveWindow(foregroundWindow, startX, startY, adjustedWindowWidth, adjustedWindowHeight, TRUE);
         }
     }
 }
