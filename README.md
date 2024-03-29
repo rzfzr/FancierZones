@@ -15,4 +15,4 @@ Todos:
 - [ ] Performance overview
 - [ ] GUI
 - [ ] Customization
-- [ ] Bring to spotlight feature
+- [ ] Bring to spotlight and back
