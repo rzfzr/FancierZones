@@ -123,6 +123,21 @@ LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
     return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
+bool isNearEdge(HWND hwnd, POINT pt)
+{
+    RECT rect;
+    GetWindowRect(hwnd, &rect);
+
+    const int EDGE_THRESHOLD = 10; // Define proximity to edge to consider
+
+    if (pt.x - rect.left < EDGE_THRESHOLD || rect.right - pt.x < EDGE_THRESHOLD ||
+        pt.y - rect.top < EDGE_THRESHOLD || rect.bottom - pt.y < EDGE_THRESHOLD)
+    {
+        return true; // Cursor is near an edge
+    }
+    return false; // Cursor is not near an edge
+}
+
 void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
                            LONG idObject, LONG idChild,
                            DWORD dwEventThread, DWORD dwmsEventTime)
@@ -131,25 +146,34 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
     if (event == EVENT_SYSTEM_MOVESIZESTART)
     {
         std::cout << "Native window move/size start." << std::endl;
-        SimulateMouseRelease();
-        HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        isCustomDragging = true;
-        // Start the mouse tracking thread if not already running
-        if (mouseTracker.joinable())
-        {
-            mouseTracker.join(); // Ensure the previous thread is joined before starting a new one
-        }
-        mouseTracker = std::thread(TrackMousePosition);
+        POINT cursorPos;
+        GetCursorPos(&cursorPos);
 
-        hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
-        if (hMouseHook == NULL)
+        if (isNearEdge(hwnd, cursorPos))
         {
-            std::cout << "Failed to set mouse hook" << std::endl;
         }
+        else
+        {
+            SimulateMouseRelease();
+            HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+            isCustomDragging = true;
+            // Start the mouse tracking thread if not already running
+            if (mouseTracker.joinable())
+            {
+                mouseTracker.join(); // Ensure the previous thread is joined before starting a new one
+            }
+            mouseTracker = std::thread(TrackMousePosition);
 
-        std::thread gridThread([hMonitor]()
-                               { drawGrid(hMonitor); });
-        gridThread.detach(); // Allows the thread to run independently
+            hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
+            if (hMouseHook == NULL)
+            {
+                std::cout << "Failed to set mouse hook" << std::endl;
+            }
+
+            std::thread gridThread([hMonitor]()
+                                   { drawGrid(hMonitor); });
+            gridThread.detach(); // Allows the thread to run independently
+        }
     }
 }
 
