@@ -36,7 +36,14 @@ void TrackMousePosition()
     while (isDragging.load())
     {
         GetCursorPos(&cursorPoint);
-        std::cout << "Mouse position: " << cursorPoint.x << ", " << cursorPoint.y << std::endl;
+
+        const int colWidth = width / cols;
+        const int rowHeight = height / rows;
+
+        const int horizontalZone = cursorPoint.x / colWidth;
+        const int verticalZone = cursorPoint.y / rowHeight;
+
+        std::cout << "Mouse position: " << cursorPoint.x << ", " << cursorPoint.y << ", zone: " << horizontalZone << ", " << verticalZone << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }
