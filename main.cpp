@@ -127,8 +127,7 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
                            LONG idObject, LONG idChild,
                            DWORD dwEventThread, DWORD dwmsEventTime)
 {
-    static std::thread mouseTracker; // Keep track of the thread
-
+    static std::thread mouseTracker;
     if (event == EVENT_SYSTEM_MOVESIZESTART)
     {
         std::cout << "Native window move/size start." << std::endl;
@@ -151,10 +150,6 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
         std::thread gridThread([hMonitor]()
                                { drawGrid(hMonitor); });
         gridThread.detach(); // Allows the thread to run independently
-    }
-    else if (event == EVENT_SYSTEM_MOVESIZEEND)
-    {
-        std::cout << "Native window move/size end." << std::endl;
     }
 }
 
@@ -202,14 +197,6 @@ int main()
         WINEVENT_OUTOFCONTEXT                                   // Events are ASYNC
     );
 
-    HWINEVENTHOOK moveEndHook = SetWinEventHook(
-        EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZEEND, // Range of events
-        NULL,                                               // Handle to DLL with the callback function, NULL means current process
-        WinEventProc,                                       // Pointer to the callback function
-        0, 0,                                               // Process and thread ID, 0 = all processes and threads
-        WINEVENT_OUTOFCONTEXT                               // Events are ASYNC
-    );
-
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
@@ -219,7 +206,6 @@ int main()
 
     UnhookWindowsHookEx(hKeyboardHook);
     UnhookWinEvent(moveStartHook);
-    UnhookWinEvent(moveEndHook);
 
     CoUninitialize();
 
