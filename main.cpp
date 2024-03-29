@@ -149,6 +149,9 @@ void TrackMousePosition()
             const int oldWindowWidth = windowRect.right - windowRect.left;
             const int oldWindowHeight = windowRect.bottom - windowRect.top;
 
+            int newWindowX = windowRect.left;
+            int newWindowY = windowRect.top;
+
             int newWindowWidth = ((oldWindowWidth + colWidth / 2) / colWidth) * colWidth;
             int newWindowHeight = ((oldWindowHeight + rowHeight / 2) / rowHeight) * rowHeight;
 
@@ -158,32 +161,42 @@ void TrackMousePosition()
             int newCursorX = horizontalZone * colWidth;
             int newCursorY = verticalZone * rowHeight;
 
-            switch (resizingDirection)
+            switch (resizingDirection) // First Vertically
             {
+            case ResizingDirection::Top:
             case ResizingDirection::TopLeft:
             case ResizingDirection::TopRight:
-            case ResizingDirection::BottomLeft:
-            case ResizingDirection::BottomRight:
-                // Handle corner resizing
-                break;
-            case ResizingDirection::Left:
-            case ResizingDirection::Right:
-                // Handle horizontal resizing
-                break;
-            case ResizingDirection::Top:
+                newWindowY = newCursorY;
+                newWindowHeight = newWindowHeight - (newCursorY - windowRect.top);
                 break;
             case ResizingDirection::Bottom:
+            case ResizingDirection::BottomLeft:
+            case ResizingDirection::BottomRight:
                 verticalZone = (cursorPoint.y - windowRect.top) / rowHeight;
                 newCursorY = verticalZone * rowHeight;
-
                 newWindowHeight = newCursorY;
-
+                break;
+            }
+            switch (resizingDirection) // Then Horizontally
+            {
+            case ResizingDirection::Left:
+            case ResizingDirection::TopLeft:
+            case ResizingDirection::BottomLeft:
+                newWindowX = newCursorX;
+                newWindowWidth = newWindowWidth - (newCursorX - windowRect.left);
+                break;
+            case ResizingDirection::Right:
+            case ResizingDirection::TopRight:
+            case ResizingDirection::BottomRight:
+                horizontalZone = (cursorPoint.x - windowRect.left) / colWidth;
+                newCursorX = horizontalZone * colWidth;
+                newWindowWidth = newCursorX;
                 break;
             }
 
             MoveWindow(foregroundWindow,
-                       windowRect.left,
-                       windowRect.top,
+                       newWindowX,
+                       newWindowY,
                        newWindowWidth,
                        newWindowHeight,
                        TRUE);
