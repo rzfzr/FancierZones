@@ -128,7 +128,6 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
         std::cout << "Native window move/size start." << std::endl;
         SimulateMouseRelease();
         HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        drawGrid(hMonitor);
         isCustomDragging = true;
         // Start the mouse tracking thread if not already running
         if (mouseTracker.joinable())
@@ -142,6 +141,10 @@ void CALLBACK WinEventProc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
         {
             std::cout << "Failed to set mouse hook" << std::endl;
         }
+
+        std::thread gridThread([hMonitor]()
+                               { drawGrid(hMonitor); });
+        gridThread.detach(); // Allows the thread to run independently
     }
     else if (event == EVENT_SYSTEM_MOVESIZEEND)
     {
